@@ -107,6 +107,22 @@ export const deleteService = async (serviceId) => {
 };
 
 /**
+ * Toggle service activation status
+ * @param {string} serviceId - Service ID (MongoDB _id)
+ * @param {boolean} isActive - New activation status
+ * @returns {Promise<object>} - Updated service
+ */
+export const toggleServiceActivation = async (serviceId, isActive) => {
+    try {
+        const response = await updateService(serviceId, { isActive });
+        return response;
+    } catch (error) {
+        console.error('Error toggling service activation:', error);
+        throw error;
+    }
+};
+
+/**
  * Get services by price range
  * @param {number} minPrice - Minimum price
  * @param {number} maxPrice - Maximum price

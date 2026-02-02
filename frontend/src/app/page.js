@@ -7,9 +7,9 @@ export default function Home() {
   const router = useRouter();
 
   useEffect(() => {
-    // Redirect to dashboard with default tenant
-    // You can change 'tenant_001' to any default tenant ID
-    router.push('/dashboard/tenant_001');
+    // Redirect to dashboard with tenant ID from environment variable
+    const tenantId = process.env.NEXT_PUBLIC_TENANTID || 'default_tenant';
+    router.push(`/dashboard/${tenantId}`);
   }, [router]);
 
   return (

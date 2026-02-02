@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, use, useEffect } from 'react';
+import { CalendarPlus, List, Clock, TicketPercent } from 'lucide-react';
 import AllBookings from '@/Components/bookings/AllBookings';
 import AllServices from '@/Components/services/AllServices';
-import DailySchedule from '@/Components/timings/dailySchedule';
+import DailySchedule from '@/Components/timings/workingHours';
 import Offers from '@/Components/offersAndMarketing/Offers';
 import { validateTenantId } from '@/services/backendServices/client';
 
@@ -36,25 +37,25 @@ export default function Dashboard({ params }) {
         {
             id: 'bookings',
             label: 'Bookings',
-            icon: '📅',
+            icon: CalendarPlus,
             component: AllBookings,
         },
         {
             id: 'services',
             label: 'Services',
-            icon: '💅',
+            icon: List,
             component: AllServices,
         },
         {
             id: 'timings',
             label: 'Timings',
-            icon: '⏰',
+            icon: Clock,
             component: DailySchedule,
         },
         {
             id: 'offers',
             label: 'Offers',
-            icon: '🎁',
+            icon: TicketPercent,
             component: Offers,
         },
     ];
@@ -108,41 +109,50 @@ export default function Dashboard({ params }) {
             {/* Vertical Navbar */}
             <aside className="w-64 bg-gray-900 shadow-2xl flex flex-col border-r border-gray-800">
                 {/* Logo/Header */}
-                <div className="p-6 border-b border-gray-800 bg-gradient-to-r from-gray-800 to-gray-900">
-                    <h1 className="text-2xl font-bold text-white mb-1">
-                        Swara Beauty
-                    </h1>
-                    <p className="text-sm text-gray-400">
-                        Dashboard
-                    </p>
+                <div className="p-6 border-b border-gray-800">
+                    <div className="flex items-center gap-3 mb-2">
+                        {/* Logo Placeholder */}
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-gray-700 to-gray-800 border-2 border-gray-600 flex items-center justify-center flex-shrink-0">
+                            {/* User can add image here later */}
+                            <div className="text-gray-400 text-xs font-semibold">LOGO</div>
+                        </div>
+                        <div>
+                            <h1 className="text-xl font-bold text-white">
+                                Swara Beauty Saloon
+                            </h1>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Navigation Items */}
-                <nav className="flex-1 p-4 space-y-2">
-                    {tabs.map((tab) => (
-                        <button
-                            key={tab.id}
-                            onClick={() => setActiveTab(tab.id)}
-                            className={`
-                                w-full flex items-center gap-4 px-4 py-3 rounded-xl
-                                transition-all duration-300 font-medium
-                                ${activeTab === tab.id
-                                    ? 'bg-white text-black shadow-lg scale-105'
-                                    : 'bg-gray-800 text-gray-300 hover:bg-gray-700 hover:scale-102'
-                                }
-                            `}
-                        >
-                            <span className="text-2xl">{tab.icon}</span>
-                            <span className="text-lg">{tab.label}</span>
-                        </button>
-                    ))}
+                <nav className="flex-1 p-4 space-y-1">
+                    {tabs.map((tab) => {
+                        const IconComponent = tab.icon;
+                        return (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id)}
+                                className={`
+                                    w-full flex items-center gap-3 px-4 py-3 rounded-lg
+                                    transition-all duration-200 font-medium text-sm
+                                    ${activeTab === tab.id
+                                        ? 'bg-white text-black shadow-md'
+                                        : 'text-gray-300 hover:bg-gray-800'
+                                    }
+                                `}
+                            >
+                                <IconComponent className="w-5 h-5" />
+                                <span>{tab.label}</span>
+                            </button>
+                        );
+                    })}
                 </nav>
 
                 {/* Footer */}
                 <div className="p-4 border-t border-gray-800">
                     <div className="bg-gray-800 rounded-lg p-3">
-                        <p className="text-xs text-gray-500 mb-1">Tenant ID</p>
-                        <p className="text-sm font-mono font-semibold text-white">
+                        <p className="text-xs text-gray-500 mb-1">Admin ID</p>
+                        <p className="text-xs font-mono font-semibold text-white truncate">
                             {tenantId}
                         </p>
                     </div>
