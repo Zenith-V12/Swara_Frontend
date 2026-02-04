@@ -1,13 +1,16 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Calendar, Clock, Users, Plus, Edit2, Check, X, RefreshCcw } from 'lucide-react';
+import { Calendar, Clock, Users, Plus, Edit2, Check, X, RefreshCcw, Copy } from 'lucide-react';
 import {
     getAllWorkingHours,
     createWorkingHours,
     updateWorkingHours,
-    getWorkingHoursByDateRange
+    getWorkingHoursByDateRange,
+    deleteWorkingHours,
+    detectAffectedBookings
 } from '../../services/backendServices/workingHours';
+import NewWorkingHoursPopUp from './newWorkingHoursPopUp';
 
 export default function WorkingHours() {
     const [workingHours, setWorkingHours] = useState([]);
@@ -38,10 +41,10 @@ export default function WorkingHours() {
         setError(null);
 
         try {
-            // Get working hours for the next 30 days
+            // Get working hours for the next 2 weeks only (14 days)
             const today = new Date();
             const endDate = new Date();
-            endDate.setDate(today.getDate() + 30);
+            endDate.setDate(today.getDate() + 14);
 
             const response = await getWorkingHoursByDateRange(
                 today.toISOString().split('T')[0],
@@ -49,13 +52,107 @@ export default function WorkingHours() {
             );
 
             console.log('📦 Working Hours Response:', response);
-            setWorkingHours(response.data || []);
+            const fetchedHours = response.data || [];
+            setWorkingHours(fetchedHours);
+            
+            // Auto-maintain removed - schedules are only created manually or via +7 day copy
         } catch (err) {
             console.error('❌ Error fetching working hours:', err);
             setError(err.message || 'Failed to fetch working hours');
         } finally {
             setLoading(false);
         }
+    };
+
+    const autoMaintainTwoWeekSchedule = async (currentWorkingHours) => {
+        try {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const daysOfWeekArray = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+            
+            // Get all dates from today to 14 days ahead
+            const next14Days = [];
+            for (let i = 0; i <= 13; i++) {
+                const date = new Date(today);
+                date.setDate(today.getDate() + i);
+                next14Days.push(date.toISOString().split('T')[0]);
+            }
+
+            // Find missing dates in the next 14 days
+            const existingDates = new Set(currentWorkingHours.map(wh => wh.date));
+            const missingDates = next14Days.filter(date => !existingDates.has(date));
+
+            if (missingDates.length === 0) {
+                console.log('✅ All dates in 2-week window already have schedules');
+                return;
+            }
+
+            console.log(`📋 Auto-filling ${missingDates.length} missing dates in 2-week window`);
+
+            // For each missing date, try to copy from 7 days ago
+            for (const missingDate of missingDates) {
+                const date = new Date(missingDate + 'T00:00:00');
+                const sevenDaysAgo = new Date(date);
+                sevenDaysAgo.setDate(date.getDate() - 7);
+                const sevenDaysAgoString = sevenDaysAgo.toISOString().split('T')[0];
+
+                // Find the schedule from 7 days ago
+                const sourceSchedule = currentWorkingHours.find(wh => wh.date === sevenDaysAgoString);
+
+                if (sourceSchedule) {
+                    const dayName = daysOfWeekArray[date.getDay()];
+                    
+                    try {
+                        await createWorkingHours({
+                            date: missingDate,
+                            day: dayName,
+                            isClosed: sourceSchedule.isClosed,
+                            start: sourceSchedule.isClosed ? null : sourceSchedule.start,
+                            end: sourceSchedule.isClosed ? null : sourceSchedule.end,
+                            break_start: sourceSchedule.isClosed ? null : sourceSchedule.break_start,
+                            break_end: sourceSchedule.isClosed ? null : sourceSchedule.break_end,
+                            workforce: sourceSchedule.workforce
+                        });
+                        console.log(`  ✅ Auto-created schedule for ${missingDate} based on ${sevenDaysAgoString}`);
+                    } catch (error) {
+                        // Silently skip if already exists or other error
+                        if (error.message && error.message.includes('already exist')) {
+                            console.log(`  ℹ️  Schedule for ${missingDate} already exists, skipping`);
+                        } else {
+                            console.log(`  ⚠️  Could not create schedule for ${missingDate}:`, error.message);
+                        }
+                    }
+                }
+            }
+
+            // Refresh the working hours to show the new auto-created schedules
+            const endDate = new Date();
+            endDate.setDate(today.getDate() + 14);
+            const refreshResponse = await getWorkingHoursByDateRange(
+                today.toISOString().split('T')[0],
+                endDate.toISOString().split('T')[0]
+            );
+            setWorkingHours(refreshResponse.data || []);
+        } catch (error) {
+            console.error('❌ Error in auto-maintain schedule:', error);
+        }
+    };
+
+    const hasScheduleForTwoWeeks = (currentWorkingHours) => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        const twoWeeksFromNow = new Date(today);
+        twoWeeksFromNow.setDate(today.getDate() + 13);
+        
+        // Count how many days have schedules in the next 14 days (today + 13)
+        const futureDates = currentWorkingHours.filter(wh => {
+            const whDate = new Date(wh.date + 'T00:00:00');
+            return whDate >= today && whDate <= twoWeeksFromNow;
+        });
+        
+        // If we have at least 14 days of schedule, we're full
+        return futureDates.length >= 14;
     };
 
     const handleEditClick = (entry) => {
@@ -93,9 +190,28 @@ export default function WorkingHours() {
                 workforce: parseInt(editingEntry.workforce)
             });
 
-            setWorkingHours(workingHours.map(entry =>
+            const updatedWorkingHours = workingHours.map(entry =>
                 entry._id === entryId ? { ...entry, ...editingEntry } : entry
-            ));
+            );
+            setWorkingHours(updatedWorkingHours);
+
+            // Detect and notify affected bookings
+            try {
+                console.log('🔍 Checking for affected bookings...');
+                const result = await detectAffectedBookings([editingEntry.date]);
+                if (result.data && result.data.affected_count > 0) {
+                    console.log(`✅ Notified ${result.data.affected_count} affected booking(s)`);
+                }
+            } catch (detectError) {
+                console.error('⚠️ Error detecting affected bookings:', detectError);
+                // Don't fail the whole operation if detection fails
+            }
+
+            // Auto-copy the updated schedule to future weeks in sliding window
+            const updatedEntry = updatedWorkingHours.find(e => e._id === entryId);
+            if (updatedEntry) {
+                await autoCopyToSlidingWindow(updatedEntry, updatedWorkingHours);
+            }
 
             setEditingEntry(null);
             console.log('✅ Working hours updated successfully');
@@ -112,14 +228,31 @@ export default function WorkingHours() {
     };
 
     const handleAddChange = (field, value) => {
+        const updates = { [field]: value };
+        
+        // Auto-populate day when date is selected
+        if (field === 'date' && value) {
+            const daysOfWeekArray = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+            const selectedDate = new Date(value + 'T00:00:00');
+            const dayName = daysOfWeekArray[selectedDate.getDay()];
+            updates.day = dayName;
+        }
+        
         setNewEntry({
             ...newEntry,
-            [field]: value
+            ...updates
         });
     };
 
     const handleAddSubmit = async (e) => {
         e.preventDefault();
+        
+        // Check if we already have 2 weeks of schedule
+        if (hasScheduleForTwoWeeks(workingHours)) {
+            alert('Cannot add more schedules. You already have schedules for the next 2 weeks. Please wait for the sliding window to move forward.');
+            return;
+        }
+
         setUpdatingEntry('new');
 
         try {
@@ -134,7 +267,12 @@ export default function WorkingHours() {
                 workforce: parseInt(newEntry.workforce)
             });
 
-            setWorkingHours([response.data, ...workingHours].sort((a, b) => a.date.localeCompare(b.date)));
+            const updatedWorkingHours = [response.data, ...workingHours].sort((a, b) => a.date.localeCompare(b.date));
+            setWorkingHours(updatedWorkingHours);
+            
+            // Auto-copy this schedule to next week and week after (sliding window)
+            await autoCopyToSlidingWindow(response.data, updatedWorkingHours);
+            
             setNewEntry({
                 date: '',
                 day: '',
@@ -152,6 +290,96 @@ export default function WorkingHours() {
             alert('Failed to create working hours: ' + error.message);
         } finally {
             setUpdatingEntry(null);
+        }
+    };
+
+    const autoCopyToSlidingWindow = async (sourceEntry, currentWorkingHours) => {
+        try {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const daysOfWeekArray = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+            
+            // Parse source date properly
+            const [year, month, day] = sourceEntry.date.split('-').map(Number);
+            const sourceDate = new Date(year, month - 1, day);  // month is 0-indexed
+            
+            // Copy to next week (7 days ahead) only
+            const offset = 7;
+            const targetDate = new Date(sourceDate);
+            targetDate.setDate(targetDate.getDate() + offset);
+            
+            // Format as YYYY-MM-DD
+            const targetYear = targetDate.getFullYear();
+            const targetMonth = String(targetDate.getMonth() + 1).padStart(2, '0');
+            const targetDay = String(targetDate.getDate()).padStart(2, '0');
+            const targetDateString = `${targetYear}-${targetMonth}-${targetDay}`;
+            
+            // Only create if target date is within 14 days from today and doesn't exist
+            const daysFromToday = Math.floor((targetDate - today) / (1000 * 60 * 60 * 24));
+            if (daysFromToday > 13) {
+                console.log(`  ⚠️ Skipping ${targetDateString} - beyond 2-week window`);
+                
+                // Refresh and return
+                const refreshEndDate = new Date();
+                refreshEndDate.setDate(today.getDate() + 14);
+                const refreshResponse = await getWorkingHoursByDateRange(
+                    today.toISOString().split('T')[0],
+                    refreshEndDate.toISOString().split('T')[0]
+                );
+                setWorkingHours(refreshResponse.data || []);
+                return;
+            }
+            
+            // Fetch latest data to check if it exists in DB
+            const endDate = new Date();
+            endDate.setDate(today.getDate() + 14);
+            const checkResponse = await getWorkingHoursByDateRange(
+                today.toISOString().split('T')[0],
+                endDate.toISOString().split('T')[0]
+            );
+            const latestWorkingHours = checkResponse.data || [];
+            
+            const exists = latestWorkingHours.some(wh => wh.date === targetDateString);
+            if (exists) {
+                console.log(`  ⚠️ Skipping ${targetDateString} - already exists`);
+                setWorkingHours(latestWorkingHours);
+                return;
+            }
+
+            const dayName = daysOfWeekArray[targetDate.getDay()];
+            
+            try {
+                await createWorkingHours({
+                    date: targetDateString,
+                    day: dayName,
+                    isClosed: sourceEntry.isClosed,
+                    start: sourceEntry.isClosed ? null : sourceEntry.start,
+                    end: sourceEntry.isClosed ? null : sourceEntry.end,
+                    break_start: sourceEntry.isClosed ? null : sourceEntry.break_start,
+                    break_end: sourceEntry.isClosed ? null : sourceEntry.break_end,
+                    workforce: sourceEntry.workforce
+                });
+                
+                console.log(`  ✅ Auto-copied to ${targetDateString} (+7 days ahead)`);
+            } catch (error) {
+                // Silently skip if already exists or other error
+                if (error.message && error.message.includes('already exist')) {
+                    console.log(`  ℹ️  Schedule for ${targetDateString} already exists, skipping`);
+                } else {
+                    console.log(`  ⚠️  Could not create schedule for ${targetDateString}:`, error.message);
+                }
+            }
+            
+            // Refresh the list without triggering auto-maintain
+            const finalEndDate = new Date();
+            finalEndDate.setDate(today.getDate() + 14);
+            const refreshResponse = await getWorkingHoursByDateRange(
+                today.toISOString().split('T')[0],
+                finalEndDate.toISOString().split('T')[0]
+            );
+            setWorkingHours(refreshResponse.data || []);
+        } catch (error) {
+            console.error('❌ Error in auto-copy to sliding window:', error);
         }
     };
 
@@ -184,9 +412,6 @@ export default function WorkingHours() {
                             <Clock className="w-8 h-8" />
                             Working Hours
                         </h1>
-                        <p className="text-gray-400">
-                            Manage your daily schedule and availability
-                        </p>
                     </div>
                     <div className="flex gap-3">
                         <button
@@ -206,145 +431,15 @@ export default function WorkingHours() {
                     </div>
                 </div>
 
-                {/* Add New Entry Form */}
-                {showAddForm && (
-                    <div className="bg-gray-900 rounded-2xl shadow-lg p-6 mb-6 border border-gray-800">
-                        <h2 className="text-xl font-bold text-white mb-4">Add New Schedule</h2>
-                        <form onSubmit={handleAddSubmit} className="space-y-4">
-                            <div className="grid grid-cols-3 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                                        Date *
-                                    </label>
-                                    <input
-                                        type="date"
-                                        value={newEntry.date}
-                                        onChange={(e) => handleAddChange('date', e.target.value)}
-                                        className="w-full px-4 py-2 bg-gray-800 border border-gray-700 text-white rounded-lg focus:ring-2 focus:ring-white focus:border-transparent"
-                                        required
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                                        Day *
-                                    </label>
-                                    <select
-                                        value={newEntry.day}
-                                        onChange={(e) => handleAddChange('day', e.target.value)}
-                                        className="w-full px-4 py-2 bg-gray-800 border border-gray-700 text-white rounded-lg focus:ring-2 focus:ring-white focus:border-transparent"
-                                        required
-                                    >
-                                        <option value="">Select Day</option>
-                                        {daysOfWeek.map(day => (
-                                            <option key={day} value={day}>{day.charAt(0).toUpperCase() + day.slice(1)}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                                        Workforce *
-                                    </label>
-                                    <input
-                                        type="number"
-                                        value={newEntry.workforce}
-                                        onChange={(e) => handleAddChange('workforce', e.target.value)}
-                                        className="w-full px-4 py-2 bg-gray-800 border border-gray-700 text-white rounded-lg focus:ring-2 focus:ring-white focus:border-transparent"
-                                        min="0"
-                                        required
-                                    />
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <input
-                                    type="checkbox"
-                                    id="newIsClosed"
-                                    checked={newEntry.isClosed}
-                                    onChange={(e) => handleAddChange('isClosed', e.target.checked)}
-                                    className="w-4 h-4"
-                                />
-                                <label htmlFor="newIsClosed" className="text-sm text-gray-300">
-                                    Closed on this day
-                                </label>
-                            </div>
-                            {!newEntry.isClosed && (
-                                <>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-300 mb-2">
-                                                Start Time *
-                                            </label>
-                                            <input
-                                                type="time"
-                                                value={newEntry.start}
-                                                onChange={(e) => handleAddChange('start', e.target.value)}
-                                                className="w-full px-4 py-2 bg-gray-800 border border-gray-700 text-white rounded-lg focus:ring-2 focus:ring-white focus:border-transparent"
-                                                required={!newEntry.isClosed}
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-300 mb-2">
-                                                End Time *
-                                            </label>
-                                            <input
-                                                type="time"
-                                                value={newEntry.end}
-                                                onChange={(e) => handleAddChange('end', e.target.value)}
-                                                className="w-full px-4 py-2 bg-gray-800 border border-gray-700 text-white rounded-lg focus:ring-2 focus:ring-white focus:border-transparent"
-                                                required={!newEntry.isClosed}
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-300 mb-2">
-                                                Break Start
-                                            </label>
-                                            <input
-                                                type="time"
-                                                value={newEntry.break_start}
-                                                onChange={(e) => handleAddChange('break_start', e.target.value)}
-                                                className="w-full px-4 py-2 bg-gray-800 border border-gray-700 text-white rounded-lg focus:ring-2 focus:ring-white focus:border-transparent"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-300 mb-2">
-                                                Break End
-                                            </label>
-                                            <input
-                                                type="time"
-                                                value={newEntry.break_end}
-                                                onChange={(e) => handleAddChange('break_end', e.target.value)}
-                                                className="w-full px-4 py-2 bg-gray-800 border border-gray-700 text-white rounded-lg focus:ring-2 focus:ring-white focus:border-transparent"
-                                            />
-                                        </div>
-                                    </div>
-                                </>
-                            )}
-                            <div className="flex gap-3 justify-end">
-                                <button
-                                    type="button"
-                                    onClick={handleAddCancel}
-                                    disabled={updatingEntry === 'new'}
-                                    className="px-4 py-2 bg-gray-800 text-gray-300 rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={updatingEntry === 'new'}
-                                    className="px-4 py-2 bg-white text-black rounded-lg hover:bg-gray-200 transition-colors font-medium disabled:opacity-50 flex items-center gap-2"
-                                >
-                                    {updatingEntry === 'new' ? 'Creating...' : (
-                                        <>
-                                            <Plus className="w-4 h-4" />
-                                            Create Schedule
-                                        </>
-                                    )}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                )}
+                {/* Add New Entry Modal */}
+                <NewWorkingHoursPopUp
+                    isOpen={showAddForm}
+                    onClose={handleAddCancel}
+                    onSubmit={handleAddSubmit}
+                    newEntry={newEntry}
+                    onEntryChange={handleAddChange}
+                    isCreating={updatingEntry === 'new'}
+                />
 
                 {/* Loading State */}
                 {loading && (
@@ -399,8 +494,8 @@ export default function WorkingHours() {
                                 </button>
                             </div>
                         ) : (
-                            <div className="bg-gray-900 rounded-2xl shadow-lg border border-gray-800 overflow-hidden">
-                                <div className="overflow-x-auto">
+                            <div className="bg-gray-900 rounded-2xl shadow-lg border border-gray-800 overflow-visible">
+                                <div className="overflow-x-auto overflow-y-visible">
                                     <table className="w-full">
                                         <thead className="bg-gray-800 border-b border-gray-700">
                                             <tr>
@@ -419,7 +514,10 @@ export default function WorkingHours() {
                                                 const isUpdating = updatingEntry === entry._id;
 
                                                 return (
-                                                    <tr key={entry._id} className="hover:bg-gray-800 transition-colors">
+                                                    <tr 
+                                                        key={entry._id} 
+                                                        className="hover:bg-gray-800 transition-colors overflow-visible"
+                                                    >
                                                         <td className="px-6 py-4 text-sm text-white">
                                                             {formatDate(entry.date)}
                                                         </td>
@@ -437,8 +535,8 @@ export default function WorkingHours() {
                                                                 />
                                                             ) : (
                                                                 <span className={`px-3 py-1 rounded-full text-xs font-semibold ${entry.isClosed
-                                                                        ? 'bg-red-900 text-red-300 border border-red-800'
-                                                                        : 'bg-green-900 text-green-300 border border-green-800'
+                                                                    ? 'bg-red-900 text-red-300 border border-red-800'
+                                                                    : 'bg-green-900 text-green-300 border border-green-800'
                                                                     }`}>
                                                                     {entry.isClosed ? 'Closed' : 'Open'}
                                                                 </span>
@@ -507,7 +605,7 @@ export default function WorkingHours() {
                                                                 </div>
                                                             )}
                                                         </td>
-                                                        <td className="px-6 py-4 text-sm">
+                                                        <td className="px-6 py-4 text-sm relative overflow-visible">
                                                             {isEditing ? (
                                                                 <div className="flex gap-2">
                                                                     <button

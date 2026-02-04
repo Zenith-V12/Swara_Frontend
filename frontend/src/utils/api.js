@@ -2,7 +2,7 @@
  * API Utility for making HTTP requests to the backend
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
 
 /**
  * Generic API request handler
@@ -26,6 +26,12 @@ export const apiRequest = async (endpoint, options = {}) => {
         const data = await response.json();
 
         if (!response.ok) {
+            console.error('❌ API Error Response:', {
+                status: response.status,
+                statusText: response.statusText,
+                url,
+                data
+            });
             throw new Error(data.message || 'API request failed');
         }
 
@@ -71,12 +77,10 @@ export const put = (endpoint, data) => {
 /**
  * DELETE request
  */
-export const del = (endpoint, params = {}) => {
-    const queryString = new URLSearchParams(params).toString();
-    const url = queryString ? `${endpoint}?${queryString}` : endpoint;
-
-    return apiRequest(url, {
+export const del = (endpoint, data = {}) => {
+    return apiRequest(endpoint, {
         method: 'DELETE',
+        body: JSON.stringify(data),
     });
 };
 

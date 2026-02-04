@@ -157,3 +157,21 @@ export const getWorkingHoursByDay = async (day) => {
         throw error;
     }
 };
+
+/**
+ * Detect and notify affected bookings due to schedule changes
+ * @param {Array<string>} affectedDates - Array of dates that were changed (optional)
+ * @returns {Promise<object>} - Result of detection
+ */
+export const detectAffectedBookings = async (affectedDates = []) => {
+    try {
+        const response = await post('/api/workinghours/detect-affected', {
+            tenantId: TENANT_ID,
+            affectedDates
+        });
+        return response;
+    } catch (error) {
+        console.error('Error detecting affected bookings:', error);
+        throw error;
+    }
+};

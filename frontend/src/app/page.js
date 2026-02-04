@@ -8,7 +8,7 @@ export default function Home() {
 
   useEffect(() => {
     // Redirect to dashboard with tenant ID from environment variable
-    const tenantId = process.env.NEXT_PUBLIC_TENANTID || 'default_tenant';
+    const tenantId = process.env.NEXT_PUBLIC_TENANTID;
     router.push(`/dashboard/${tenantId}`);
   }, [router]);
 
