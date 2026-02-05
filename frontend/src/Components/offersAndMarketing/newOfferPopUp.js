@@ -1,11 +1,11 @@
 import { Plus, X } from 'lucide-react';
 
-export default function NewServicePopUp({
+export default function NewOfferPopUp({
     isOpen,
     onClose,
     onSubmit,
-    newService,
-    onServiceChange,
+    newOffer,
+    onOfferChange,
     isCreating
 }) {
     if (!isOpen) return null;
@@ -27,7 +27,7 @@ export default function NewServicePopUp({
             <div className="relative bg-gray-900 rounded-2xl shadow-2xl border border-gray-800 max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-bounce-in">
                 {/* Header */}
                 <div className="sticky top-0 bg-gray-900 border-b border-gray-800 px-6 py-4 flex items-center justify-between">
-                    <h2 className="text-2xl font-bold text-white">Add New Service</h2>
+                    <h2 className="text-2xl font-bold text-white">Add New Offer</h2>
                     <button
                         onClick={onClose}
                         className="text-gray-400 hover:text-white transition-colors"
@@ -42,27 +42,28 @@ export default function NewServicePopUp({
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-300 mb-2">
-                                Service Title *
+                                Offer Title *
                             </label>
                             <input
                                 type="text"
-                                value={newService.title}
-                                onChange={(e) => onServiceChange('title', e.target.value)}
+                                value={newOffer.title}
+                                onChange={(e) => onOfferChange('title', e.target.value)}
                                 className="w-full px-4 py-2 bg-gray-800 border border-gray-700 text-white rounded-lg focus:ring-2 focus:ring-white focus:border-transparent"
-                                placeholder="e.g., Hair Cut"
+                                placeholder="e.g., Summer Glow Package"
                                 required
                             />
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-300 mb-2">
-                                Category *
+                                Duration (minutes) *
                             </label>
                             <input
-                                type="text"
-                                value={newService.category}
-                                onChange={(e) => onServiceChange('category', e.target.value)}
+                                type="number"
+                                value={newOffer.duration_mins}
+                                onChange={(e) => onOfferChange('duration_mins', e.target.value)}
                                 className="w-full px-4 py-2 bg-gray-800 border border-gray-700 text-white rounded-lg focus:ring-2 focus:ring-white focus:border-transparent"
-                                placeholder="e.g., Hair, Face, Body"
+                                placeholder="e.g., 60"
+                                min="1"
                                 required
                             />
                         </div>
@@ -70,30 +71,28 @@ export default function NewServicePopUp({
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-300 mb-2">
-                                Duration (minutes) *
+                                Price (₹) *
                             </label>
                             <input
                                 type="number"
-                                value={newService.duration_mins}
-                                onChange={(e) => onServiceChange('duration_mins', e.target.value)}
+                                value={newOffer.price}
+                                onChange={(e) => onOfferChange('price', e.target.value)}
                                 className="w-full px-4 py-2 bg-gray-800 border border-gray-700 text-white rounded-lg focus:ring-2 focus:ring-white focus:border-transparent"
-                                placeholder="e.g., 30"
-                                min="1"
+                                placeholder="e.g., 999"
+                                min="0"
+                                step="0.01"
                                 required
                             />
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-300 mb-2">
-                                Price (₹) *
+                                Valid Until *
                             </label>
                             <input
-                                type="number"
-                                value={newService.price}
-                                onChange={(e) => onServiceChange('price', e.target.value)}
+                                type="date"
+                                value={newOffer.end_date}
+                                onChange={(e) => onOfferChange('end_date', e.target.value)}
                                 className="w-full px-4 py-2 bg-gray-800 border border-gray-700 text-white rounded-lg focus:ring-2 focus:ring-white focus:border-transparent"
-                                placeholder="e.g., 500"
-                                min="0"
-                                step="0.01"
                                 required
                             />
                         </div>
@@ -103,10 +102,10 @@ export default function NewServicePopUp({
                             Description *
                         </label>
                         <textarea
-                            value={newService.description}
-                            onChange={(e) => onServiceChange('description', e.target.value)}
+                            value={newOffer.description}
+                            onChange={(e) => onOfferChange('description', e.target.value)}
                             className="w-full px-4 py-2 bg-gray-800 border border-gray-700 text-white rounded-lg focus:ring-2 focus:ring-white focus:border-transparent"
-                            placeholder="Describe the service..."
+                            placeholder="Describe the offer... e.g., Full face cleanup + Detan + Eyebrow threading"
                             rows="3"
                             required
                         />
@@ -128,7 +127,7 @@ export default function NewServicePopUp({
                             {isCreating ? 'Creating...' : (
                                 <>
                                     <Plus className="w-4 h-4" />
-                                    Create Service
+                                    Create Offer
                                 </>
                             )}
                         </button>

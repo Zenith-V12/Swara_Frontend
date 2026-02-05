@@ -16,7 +16,8 @@ export default function AllServices() {
         title: '',
         description: '',
         duration_mins: '',
-        price: ''
+        price: '',
+        category: ''
     });
 
     // Fetch services on component mount
@@ -31,7 +32,13 @@ export default function AllServices() {
         try {
             const response = await getAllServices();
             console.log('📦 Services Response:', response);
-            setServices(response.data || []);
+            
+            // Filter out services with category "Limited Time Offers"
+            const filteredServices = (response.data || []).filter(
+                service => service.category !== 'Limited Time Offers'
+            );
+            
+            setServices(filteredServices);
         } catch (err) {
             console.error('❌ Error fetching services:', err);
             setError(err.message || 'Failed to fetch services');
@@ -124,11 +131,12 @@ export default function AllServices() {
                 title: newService.title,
                 description: newService.description,
                 duration_mins: parseInt(newService.duration_mins),
-                price: parseFloat(newService.price)
+                price: parseFloat(newService.price),
+                category: newService.category
             });
 
             setServices([response.data, ...services]);
-            setNewService({ title: '', description: '', duration_mins: '', price: '' });
+            setNewService({ title: '', description: '', duration_mins: '', price: '', category: '' });
             setShowAddForm(false);
             console.log('✅ Service created successfully');
         } catch (error) {
@@ -140,7 +148,7 @@ export default function AllServices() {
     };
 
     const handleAddCancel = () => {
-        setNewService({ title: '', description: '', duration_mins: '', price: '' });
+        setNewService({ title: '', description: '', duration_mins: '', price: '', category: '' });
         setShowAddForm(false);
     };
 
