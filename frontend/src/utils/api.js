@@ -1,7 +1,6 @@
 /**
  * API Utility for making HTTP requests to the backend
  */
-//testing vercel
 const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
 
 /**
