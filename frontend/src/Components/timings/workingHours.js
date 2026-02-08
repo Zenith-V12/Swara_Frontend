@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Calendar, Clock, Users, Plus, Edit2, Check, X, RefreshCcw, Copy } from 'lucide-react';
+import { Calendar, Clock, Users, Edit2, Check, X, RefreshCcw } from 'lucide-react';
 import {
     getAllWorkingHours,
     createWorkingHours,
@@ -10,38 +10,131 @@ import {
     deleteWorkingHours,
     detectAffectedBookings
 } from '../../services/backendServices/workingHours';
-import NewWorkingHoursPopUp from './newWorkingHoursPopUp';
 
 export default function WorkingHours() {
     const [workingHours, setWorkingHours] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [editingEntry, setEditingEntry] = useState(null);
-    const [showAddForm, setShowAddForm] = useState(false);
     const [updatingEntry, setUpdatingEntry] = useState(null);
-    const [newEntry, setNewEntry] = useState({
-        date: '',
-        day: '',
-        isClosed: false,
-        start: '',
-        end: '',
-        break_start: '',
-        break_end: '',
-        workforce: 0
-    });
 
     const daysOfWeek = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
     useEffect(() => {
-        fetchWorkingHours();
+        initializeSchedule();
     }, []);
 
-    const fetchWorkingHours = async () => {
+    const initializeSchedule = async () => {
         setLoading(true);
         setError(null);
-
         try {
-            // Get working hours for the next 2 weeks only (14 days)
+            await deletePastEntries();
+            await ensureTwoWeekSchedule();
+            await fetchWorkingHours();
+        } catch (err) {
+            console.error('❌ Error initializing schedule:', err);
+            setError(err.message || 'Failed to initialize schedule');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const deletePastEntries = async () => {
+        try {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            // We need to fetch all or a wide range to find past entries. 
+            // Assuming getAllWorkingHours or a range from a long time ago.
+            // For safety, let's look back 1 year.
+            const pastDate = new Date(today);
+            pastDate.setFullYear(today.getFullYear() - 1);
+
+            // We only need to check up to yesterday
+            const yesterday = new Date(today);
+            yesterday.setDate(today.getDate() - 1);
+
+            const response = await getWorkingHoursByDateRange(
+                pastDate.toISOString().split('T')[0],
+                yesterday.toISOString().split('T')[0]
+            );
+
+            const pastEntries = response.data || [];
+
+            if (pastEntries.length > 0) {
+                console.log(`🗑️ Found ${pastEntries.length} past entries to delete`);
+                // deleting sequentially to avoid overwhelming the server if many
+                for (const entry of pastEntries) {
+                    await deleteWorkingHours(entry._id);
+                }
+                console.log('✅ Past entries deleted');
+            }
+        } catch (error) {
+            console.error('❌ Error deleting past entries:', error);
+            // We continue even if deletion fails, to ensure current schedule is shown
+        }
+    };
+
+    const ensureTwoWeekSchedule = async () => {
+        try {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            // 0 to 13 (14 days)
+            const requiredDates = [];
+            for (let i = 0; i < 14; i++) {
+                const d = new Date(today);
+                d.setDate(today.getDate() + i);
+                requiredDates.push(d.toISOString().split('T')[0]);
+            }
+
+            // Check what we already have in this range
+            const response = await getWorkingHoursByDateRange(
+                requiredDates[0],
+                requiredDates[requiredDates.length - 1]
+            );
+
+            const existingEntries = response.data || [];
+            // Ensure we are comparing same format (YYYY-MM-DD)
+            const existingDates = new Set(existingEntries.map(e => e.date.split('T')[0]));
+
+            const missingDates = requiredDates.filter(d => !existingDates.has(d));
+
+            if (missingDates.length > 0) {
+                console.log(`✨ Creating schedule for ${missingDates.length} missing days`);
+
+                for (const dateStr of missingDates) {
+                    try {
+                        const dateObj = new Date(dateStr + 'T00:00:00');
+                        const dayName = daysOfWeek[dateObj.getDay() === 0 ? 6 : dateObj.getDay() - 1]; // getDay 0 is Sunday
+
+                        // Default schedule: 09:00 - 17:00, Workforce: 1, Open
+                        await createWorkingHours({
+                            date: dateStr,
+                            day: dayName,
+                            isClosed: false,
+                            start: '09:00',
+                            end: '17:00',
+                            break_start: '',
+                            break_end: '',
+                            workforce: 1
+                        });
+                    } catch (createError) {
+                        // Silently skip if already exists or other error
+                        console.log(`⚠️ Could not create schedule for ${dateStr}:`, createError.message);
+                    }
+                }
+                console.log('✅ Missing schedules creation process completed');
+            }
+        } catch (error) {
+            console.error('❌ Error ensuring 2-week schedule:', error);
+            // We don't throw here to ensure the page still loads existing data
+        }
+    };
+
+    const fetchWorkingHours = async () => {
+        // Just fetch the relevant range now
+        try {
             const today = new Date();
             const endDate = new Date();
             endDate.setDate(today.getDate() + 14);
@@ -51,108 +144,11 @@ export default function WorkingHours() {
                 endDate.toISOString().split('T')[0]
             );
 
-            console.log('📦 Working Hours Response:', response);
-            const fetchedHours = response.data || [];
-            setWorkingHours(fetchedHours);
-            
-            // Auto-maintain removed - schedules are only created manually or via +7 day copy
-        } catch (err) {
-            console.error('❌ Error fetching working hours:', err);
-            setError(err.message || 'Failed to fetch working hours');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const autoMaintainTwoWeekSchedule = async (currentWorkingHours) => {
-        try {
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            const daysOfWeekArray = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-            
-            // Get all dates from today to 14 days ahead
-            const next14Days = [];
-            for (let i = 0; i <= 13; i++) {
-                const date = new Date(today);
-                date.setDate(today.getDate() + i);
-                next14Days.push(date.toISOString().split('T')[0]);
-            }
-
-            // Find missing dates in the next 14 days
-            const existingDates = new Set(currentWorkingHours.map(wh => wh.date));
-            const missingDates = next14Days.filter(date => !existingDates.has(date));
-
-            if (missingDates.length === 0) {
-                console.log('✅ All dates in 2-week window already have schedules');
-                return;
-            }
-
-            console.log(`📋 Auto-filling ${missingDates.length} missing dates in 2-week window`);
-
-            // For each missing date, try to copy from 7 days ago
-            for (const missingDate of missingDates) {
-                const date = new Date(missingDate + 'T00:00:00');
-                const sevenDaysAgo = new Date(date);
-                sevenDaysAgo.setDate(date.getDate() - 7);
-                const sevenDaysAgoString = sevenDaysAgo.toISOString().split('T')[0];
-
-                // Find the schedule from 7 days ago
-                const sourceSchedule = currentWorkingHours.find(wh => wh.date === sevenDaysAgoString);
-
-                if (sourceSchedule) {
-                    const dayName = daysOfWeekArray[date.getDay()];
-                    
-                    try {
-                        await createWorkingHours({
-                            date: missingDate,
-                            day: dayName,
-                            isClosed: sourceSchedule.isClosed,
-                            start: sourceSchedule.isClosed ? null : sourceSchedule.start,
-                            end: sourceSchedule.isClosed ? null : sourceSchedule.end,
-                            break_start: sourceSchedule.isClosed ? null : sourceSchedule.break_start,
-                            break_end: sourceSchedule.isClosed ? null : sourceSchedule.break_end,
-                            workforce: sourceSchedule.workforce
-                        });
-                        console.log(`  ✅ Auto-created schedule for ${missingDate} based on ${sevenDaysAgoString}`);
-                    } catch (error) {
-                        // Silently skip if already exists or other error
-                        if (error.message && error.message.includes('already exist')) {
-                            console.log(`  ℹ️  Schedule for ${missingDate} already exists, skipping`);
-                        } else {
-                            console.log(`  ⚠️  Could not create schedule for ${missingDate}:`, error.message);
-                        }
-                    }
-                }
-            }
-
-            // Refresh the working hours to show the new auto-created schedules
-            const endDate = new Date();
-            endDate.setDate(today.getDate() + 14);
-            const refreshResponse = await getWorkingHoursByDateRange(
-                today.toISOString().split('T')[0],
-                endDate.toISOString().split('T')[0]
-            );
-            setWorkingHours(refreshResponse.data || []);
+            setWorkingHours(response.data || []);
         } catch (error) {
-            console.error('❌ Error in auto-maintain schedule:', error);
+            console.error('❌ Error fetching working hours:', error);
+            throw error;
         }
-    };
-
-    const hasScheduleForTwoWeeks = (currentWorkingHours) => {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        
-        const twoWeeksFromNow = new Date(today);
-        twoWeeksFromNow.setDate(today.getDate() + 13);
-        
-        // Count how many days have schedules in the next 14 days (today + 13)
-        const futureDates = currentWorkingHours.filter(wh => {
-            const whDate = new Date(wh.date + 'T00:00:00');
-            return whDate >= today && whDate <= twoWeeksFromNow;
-        });
-        
-        // If we have at least 14 days of schedule, we're full
-        return futureDates.length >= 14;
     };
 
     const handleEditClick = (entry) => {
@@ -204,13 +200,6 @@ export default function WorkingHours() {
                 }
             } catch (detectError) {
                 console.error('⚠️ Error detecting affected bookings:', detectError);
-                // Don't fail the whole operation if detection fails
-            }
-
-            // Auto-copy the updated schedule to future weeks in sliding window
-            const updatedEntry = updatedWorkingHours.find(e => e._id === entryId);
-            if (updatedEntry) {
-                await autoCopyToSlidingWindow(updatedEntry, updatedWorkingHours);
             }
 
             setEditingEntry(null);
@@ -225,176 +214,6 @@ export default function WorkingHours() {
 
     const handleEditCancel = () => {
         setEditingEntry(null);
-    };
-
-    const handleAddChange = (field, value) => {
-        const updates = { [field]: value };
-        
-        // Auto-populate day when date is selected
-        if (field === 'date' && value) {
-            const daysOfWeekArray = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-            const selectedDate = new Date(value + 'T00:00:00');
-            const dayName = daysOfWeekArray[selectedDate.getDay()];
-            updates.day = dayName;
-        }
-        
-        setNewEntry({
-            ...newEntry,
-            ...updates
-        });
-    };
-
-    const handleAddSubmit = async (e) => {
-        e.preventDefault();
-        
-        // Check if we already have 2 weeks of schedule
-        if (hasScheduleForTwoWeeks(workingHours)) {
-            alert('Cannot add more schedules. You already have schedules for the next 2 weeks. Please wait for the sliding window to move forward.');
-            return;
-        }
-
-        setUpdatingEntry('new');
-
-        try {
-            const response = await createWorkingHours({
-                date: newEntry.date,
-                day: newEntry.day.toLowerCase(),
-                isClosed: newEntry.isClosed,
-                start: newEntry.isClosed ? null : newEntry.start,
-                end: newEntry.isClosed ? null : newEntry.end,
-                break_start: newEntry.isClosed ? null : newEntry.break_start,
-                break_end: newEntry.isClosed ? null : newEntry.break_end,
-                workforce: parseInt(newEntry.workforce)
-            });
-
-            const updatedWorkingHours = [response.data, ...workingHours].sort((a, b) => a.date.localeCompare(b.date));
-            setWorkingHours(updatedWorkingHours);
-            
-            // Auto-copy this schedule to next week and week after (sliding window)
-            await autoCopyToSlidingWindow(response.data, updatedWorkingHours);
-            
-            setNewEntry({
-                date: '',
-                day: '',
-                isClosed: false,
-                start: '',
-                end: '',
-                break_start: '',
-                break_end: '',
-                workforce: 0
-            });
-            setShowAddForm(false);
-            console.log('✅ Working hours created successfully');
-        } catch (error) {
-            console.error('❌ Error creating working hours:', error);
-            alert('Failed to create working hours: ' + error.message);
-        } finally {
-            setUpdatingEntry(null);
-        }
-    };
-
-    const autoCopyToSlidingWindow = async (sourceEntry, currentWorkingHours) => {
-        try {
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            const daysOfWeekArray = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-            
-            // Parse source date properly
-            const [year, month, day] = sourceEntry.date.split('-').map(Number);
-            const sourceDate = new Date(year, month - 1, day);  // month is 0-indexed
-            
-            // Copy to next week (7 days ahead) only
-            const offset = 7;
-            const targetDate = new Date(sourceDate);
-            targetDate.setDate(targetDate.getDate() + offset);
-            
-            // Format as YYYY-MM-DD
-            const targetYear = targetDate.getFullYear();
-            const targetMonth = String(targetDate.getMonth() + 1).padStart(2, '0');
-            const targetDay = String(targetDate.getDate()).padStart(2, '0');
-            const targetDateString = `${targetYear}-${targetMonth}-${targetDay}`;
-            
-            // Only create if target date is within 14 days from today and doesn't exist
-            const daysFromToday = Math.floor((targetDate - today) / (1000 * 60 * 60 * 24));
-            if (daysFromToday > 13) {
-                console.log(`  ⚠️ Skipping ${targetDateString} - beyond 2-week window`);
-                
-                // Refresh and return
-                const refreshEndDate = new Date();
-                refreshEndDate.setDate(today.getDate() + 14);
-                const refreshResponse = await getWorkingHoursByDateRange(
-                    today.toISOString().split('T')[0],
-                    refreshEndDate.toISOString().split('T')[0]
-                );
-                setWorkingHours(refreshResponse.data || []);
-                return;
-            }
-            
-            // Fetch latest data to check if it exists in DB
-            const endDate = new Date();
-            endDate.setDate(today.getDate() + 14);
-            const checkResponse = await getWorkingHoursByDateRange(
-                today.toISOString().split('T')[0],
-                endDate.toISOString().split('T')[0]
-            );
-            const latestWorkingHours = checkResponse.data || [];
-            
-            const exists = latestWorkingHours.some(wh => wh.date === targetDateString);
-            if (exists) {
-                console.log(`  ⚠️ Skipping ${targetDateString} - already exists`);
-                setWorkingHours(latestWorkingHours);
-                return;
-            }
-
-            const dayName = daysOfWeekArray[targetDate.getDay()];
-            
-            try {
-                await createWorkingHours({
-                    date: targetDateString,
-                    day: dayName,
-                    isClosed: sourceEntry.isClosed,
-                    start: sourceEntry.isClosed ? null : sourceEntry.start,
-                    end: sourceEntry.isClosed ? null : sourceEntry.end,
-                    break_start: sourceEntry.isClosed ? null : sourceEntry.break_start,
-                    break_end: sourceEntry.isClosed ? null : sourceEntry.break_end,
-                    workforce: sourceEntry.workforce
-                });
-                
-                console.log(`  ✅ Auto-copied to ${targetDateString} (+7 days ahead)`);
-            } catch (error) {
-                // Silently skip if already exists or other error
-                if (error.message && error.message.includes('already exist')) {
-                    console.log(`  ℹ️  Schedule for ${targetDateString} already exists, skipping`);
-                } else {
-                    console.log(`  ⚠️  Could not create schedule for ${targetDateString}:`, error.message);
-                }
-            }
-            
-            // Refresh the list without triggering auto-maintain
-            const finalEndDate = new Date();
-            finalEndDate.setDate(today.getDate() + 14);
-            const refreshResponse = await getWorkingHoursByDateRange(
-                today.toISOString().split('T')[0],
-                finalEndDate.toISOString().split('T')[0]
-            );
-            setWorkingHours(refreshResponse.data || []);
-        } catch (error) {
-            console.error('❌ Error in auto-copy to sliding window:', error);
-        }
-    };
-
-    const handleAddCancel = () => {
-        setNewEntry({
-            date: '',
-            day: '',
-            isClosed: false,
-            start: '',
-            end: '',
-            break_start: '',
-            break_end: '',
-            workforce: 0
-        });
-        setShowAddForm(false);
     };
 
     const formatDate = (dateString) => {
@@ -412,34 +231,20 @@ export default function WorkingHours() {
                             <Clock className="w-8 h-8" />
                             Working Hours
                         </h1>
+                        <p className="text-gray-400 text-sm">
+                            Schedule is automatically maintained for the next 14 days. Past dates are removed.
+                        </p>
                     </div>
                     <div className="flex gap-3">
                         <button
-                            onClick={fetchWorkingHours}
+                            onClick={initializeSchedule}
                             className="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center gap-2"
                         >
                             <RefreshCcw className="w-4 h-4" />
                             Refresh
                         </button>
-                        <button
-                            onClick={() => setShowAddForm(!showAddForm)}
-                            className="px-4 py-2 bg-white text-black rounded-lg hover:bg-gray-200 transition-colors font-medium flex items-center gap-2"
-                        >
-                            <Plus className="w-5 h-5" />
-                            Add Schedule
-                        </button>
                     </div>
                 </div>
-
-                {/* Add New Entry Modal */}
-                <NewWorkingHoursPopUp
-                    isOpen={showAddForm}
-                    onClose={handleAddCancel}
-                    onSubmit={handleAddSubmit}
-                    newEntry={newEntry}
-                    onEntryChange={handleAddChange}
-                    isCreating={updatingEntry === 'new'}
-                />
 
                 {/* Loading State */}
                 {loading && (
@@ -453,7 +258,7 @@ export default function WorkingHours() {
                     <div className="bg-red-900 border border-red-800 rounded-2xl p-6 text-center">
                         <p className="text-red-300 text-lg">❌ {error}</p>
                         <button
-                            onClick={fetchWorkingHours}
+                            onClick={initializeSchedule}
                             className="mt-4 px-6 py-2 bg-red-800 text-white rounded-lg hover:bg-red-700 transition-colors"
                         >
                             Try Again
@@ -483,15 +288,8 @@ export default function WorkingHours() {
                                     No Schedule Found
                                 </h3>
                                 <p className="text-gray-400 mb-4">
-                                    Get started by adding your working hours
+                                    The system should have auto-generated your schedule. Try refreshing.
                                 </p>
-                                <button
-                                    onClick={() => setShowAddForm(true)}
-                                    className="px-6 py-3 bg-white text-black rounded-lg hover:bg-gray-200 transition-colors font-medium inline-flex items-center gap-2"
-                                >
-                                    <Plus className="w-5 h-5" />
-                                    Add Your First Schedule
-                                </button>
                             </div>
                         ) : (
                             <div className="bg-gray-900 rounded-2xl shadow-lg border border-gray-800 overflow-visible">
@@ -514,8 +312,8 @@ export default function WorkingHours() {
                                                 const isUpdating = updatingEntry === entry._id;
 
                                                 return (
-                                                    <tr 
-                                                        key={entry._id} 
+                                                    <tr
+                                                        key={entry._id}
                                                         className="hover:bg-gray-800 transition-colors overflow-visible"
                                                     >
                                                         <td className="px-6 py-4 text-sm text-white">
