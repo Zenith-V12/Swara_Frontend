@@ -204,3 +204,37 @@ export const getBookingsByServiceFor = async (name) => {
         throw error;
     }
 };
+/**
+ * Send missed confirmation notification
+ * @param {string} bookingId - Booking ID
+ * @returns {Promise<object>} - Response
+ */
+export const sendMissedConfirmation = async (bookingId) => {
+    try {
+        const response = await post('/api/missed-confirmation', {
+            tenantId: TENANT_ID,
+            bookingId: bookingId
+        });
+        return response;
+    } catch (error) {
+        console.error('Error sending missed confirmation:', error);
+        throw error;
+    }
+};
+/**
+ * Send feedback request notification
+ * @param {string} bookingId - Booking ID
+ * @returns {Promise<object>} - Response
+ */
+export const sendFeedbackRequest = async (bookingId) => {
+    try {
+        const response = await post('/api/feedback-request', {
+            tenantId: TENANT_ID,
+            bookingId: bookingId
+        });
+        return response;
+    } catch (error) {
+        console.error('Error sending feedback request:', error);
+        throw error;
+    }
+};

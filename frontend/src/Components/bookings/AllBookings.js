@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { CalendarRange, RefreshCcw, UsersRound, Plus, ChevronDown } from 'lucide-react';
-import { getAllBookings, getBookingsByStatus, getBookingsByDate, getBookingsByServiceFor, updateBooking, createBooking } from '../../services/backendServices/bookings';
+import { getAllBookings, getBookingsByStatus, getBookingsByDate, getBookingsByServiceFor, updateBooking, createBooking, sendMissedConfirmation, sendFeedbackRequest } from '../../services/backendServices/bookings';
 import { getAllServices } from '../../services/backendServices/services';
 import { createUser } from '../../services/backendServices/users';
 import NewBookingPopUp from './newBookingPopUp';
@@ -261,9 +261,27 @@ export default function AllBookings() {
     const handleStatusChange = async (bookingId, newStatus) => {
         setUpdatingBooking(bookingId);
         try {
-            await updateBooking(bookingId, {
-                status: newStatus,
-            });
+            if (newStatus === 'no-show') {
+                // Find the booking to get the custom bookingId (e.g., bk_...) required by the backend
+                const booking = bookings.find(b => b._id === bookingId);
+                // The backend API for missed confirmation expects the custom bookingId (mapped to 'id' in frontend or 'bookingId')
+                const customId = booking?.id || booking?.bookingId || bookingId;
+
+                await sendMissedConfirmation(customId);
+                console.log('✅ Missed confirmation sent and status updated to no-show');
+            } else if (newStatus === 'completed') {
+                // Find the booking to get the custom bookingId
+                const booking = bookings.find(b => b._id === bookingId);
+                const customId = booking?.id || booking?.bookingId || bookingId;
+
+                await sendFeedbackRequest(customId);
+                console.log('✅ Feedback request sent and status updated to completed');
+            } else {
+                await updateBooking(bookingId, {
+                    status: newStatus,
+                });
+                console.log('✅ Booking status updated successfully');
+            }
 
             // Update local state
             setBookings(bookings.map(booking =>
@@ -271,11 +289,9 @@ export default function AllBookings() {
                     ? { ...booking, status: newStatus }
                     : booking
             ));
-
-            console.log('✅ Booking status updated successfully');
         } catch (error) {
             console.error('❌ Error updating booking status:', error);
-            alert('Failed to update booking status: ' + error.message);
+            alert('Failed to update: ' + error.message);
         } finally {
             setUpdatingBooking(null);
         }
@@ -304,7 +320,7 @@ export default function AllBookings() {
                     phoneNumber: newBooking.userPhone,
                     dependents: [] // Empty dependents array as requested
                 };
-                
+
                 await createUser(userData);
                 console.log('✅ User created/updated successfully');
             } catch (userError) {
@@ -404,7 +420,7 @@ export default function AllBookings() {
                 <div className="grid grid-cols-12 gap-6">
                     {/* Left Sidebar - Calendar */}
                     <div className="col-span-3">
-                        <Calendar 
+                        <Calendar
                             selectedDate={selectedDate}
                             onDateSelect={(date) => {
                                 setSelectedDate(date);
@@ -677,11 +693,11 @@ export default function AllBookings() {
 
                                                             {/* Expand/Collapse Button */}
                                                             <div className="flex justify-end">
-                                                                <button 
+                                                                <button
                                                                     onClick={() => toggleBookingExpansion(booking._id)}
                                                                     className="text-white hover:bg-gray-700 transition-colors p-2 rounded"
                                                                 >
-                                                                    <ChevronDown 
+                                                                    <ChevronDown
                                                                         className={`w-5 h-5 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
                                                                     />
                                                                 </button>

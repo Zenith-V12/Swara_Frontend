@@ -114,10 +114,10 @@ export default function WorkingHours() {
                             day: dayName,
                             isClosed: false,
                             start: '09:00',
-                            end: '17:00',
+                            end: '20:00',
                             break_start: '',
                             break_end: '',
-                            workforce: 1
+                            workforce: 3
                         });
                     } catch (createError) {
                         // Silently skip if already exists or other error
