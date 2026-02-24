@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Privacy Policy - Your Company Name</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #4f46e5;
+            --secondary-color: #0ea5e9;
+            --primary-light: #e0e7ff;
+            --text-main: #0f172a;
+            --text-muted: #475569;
+            --bg-body: #f8fafc;
+            --bg-card: #ffffff;
+            --border-color: #e2e8f0;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, #f6f8fd 0%, #f1f5f9 100%);
+            color: var(--text-main);
+            line-height: 1.7;
+            padding: 40px 20px;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            background-color: var(--bg-card);
+            max-width: 800px;
+            width: 100%;
+            border-radius: 24px;
+            box-shadow: 0 20px 40px -4px rgba(0, 0, 0, 0.05), 0 8px 16px -4px rgba(0, 0, 0, 0.02);
+            padding: 60px 80px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 6px;
+            background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+        }
+
+        .header {
+            margin-bottom: 40px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--text-main);
+            margin-bottom: 15px;
+            letter-spacing: -0.02em;
+        }
+
+        .meta-info {
+            display: flex;
+            gap: 24px;
+            font-size: 0.95rem;
+            color: var(--text-muted);
+        }
+
+        .meta-info span {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--bg-body);
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-weight: 500;
+        }
+
+        .meta-info svg {
+            color: var(--primary-color);
+        }
+
+        section {
+            padding: 24px;
+            margin-bottom: 16px;
+            border-radius: 16px;
+            border: 1px solid transparent;
+            transition: all 0.3s ease;
+            animation: fadeIn 0.5s ease-out forwards;
+            opacity: 0;
+            background: #ffffff;
+        }
+
+        section:hover {
+            border-color: var(--primary-light);
+            background: #fdfdff;
+            box-shadow: 0 10px 30px -10px rgba(79, 70, 229, 0.1);
+            transform: translateY(-2px);
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        section:nth-child(2) {
+            animation-delay: 0.1s;
+        }
+
+        section:nth-child(3) {
+            animation-delay: 0.2s;
+        }
+
+        section:nth-child(4) {
+            animation-delay: 0.3s;
+        }
+
+        section:nth-child(5) {
+            animation-delay: 0.4s;
+        }
+
+        section:nth-child(6) {
+            animation-delay: 0.5s;
+        }
+
+        section:nth-child(7) {
+            animation-delay: 0.6s;
+        }
+
+        section:nth-child(8) {
+            animation-delay: 0.7s;
+        }
+
+        section:nth-child(9) {
+            animation-delay: 0.8s;
+        }
+
+        section:nth-child(10) {
+            animation-delay: 0.9s;
+        }
+
+        section:nth-child(11) {
+            animation-delay: 1.0s;
+        }
+
+        h2 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text-main);
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        h2::before {
+            content: '';
+            display: inline-block;
+            width: 6px;
+            height: 24px;
+            background: linear-gradient(to bottom, var(--primary-color), var(--secondary-color));
+            border-radius: 4px;
+        }
+
+        p {
+            color: var(--text-muted);
+            margin-bottom: 16px;
+        }
+
+        p:last-child {
+            margin-bottom: 0;
+        }
+
+        strong {
+            color: var(--text-main);
+            font-weight: 600;
+        }
+
+        ul {
+            list-style-type: none;
+            margin-bottom: 16px;
+            padding-left: 8px;
+        }
+
+        ul:last-child {
+            margin-bottom: 0;
+        }
+
+        ul li {
+            color: var(--text-muted);
+            margin-bottom: 12px;
+            position: relative;
+            padding-left: 32px;
+            line-height: 1.6;
+        }
+
+        ul li::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 4px;
+            width: 20px;
+            height: 20px;
+            background-color: var(--primary-light);
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="%234f46e5" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>');
+            background-repeat: no-repeat;
+            background-position: center;
+            border-radius: 50%;
+        }
+
+        a {
+            color: var(--primary-color);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s ease;
+        }
+
+        a:hover {
+            color: var(--secondary-color);
+            text-decoration: underline;
+        }
+
+        .contact-box {
+            background-color: var(--bg-body);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px;
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .contact-box p {
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .contact-box p strong {
+            min-width: 140px;
+            display: inline-block;
+        }
+
+        footer {
+            margin-top: 40px;
+            padding-top: 30px;
+            border-top: 1px solid var(--border-color);
+            text-align: center;
+            font-size: 0.9rem;
+            color: #94a3b8;
+            font-weight: 500;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 20px 10px;
+            }
+
+            .container {
+                padding: 40px 24px;
+                border-radius: 20px;
+            }
+
+            h1 {
+                font-size: 2rem;
+            }
+
+            .meta-info {
+                flex-direction: column;
+                gap: 12px;
+            }
+
+            section {
+                padding: 20px 16px;
+            }
+
+            .contact-box p {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 4px;
+            }
+
+            .contact-box p strong {
+                min-width: auto;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Privacy Policy</h1>
+            <div class="meta-info">
+                <span>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                        <line x1="16" y1="2" x2="16" y2="6"></line>
+                        <line x1="8" y1="2" x2="8" y2="6"></line>
+                        <line x1="3" y1="10" x2="21" y2="10"></line>
+                    </svg>
+                    Effective Date: <strong>01/03/2026</strong>
+                </span>
+                <span>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.59-9.28l5.67-5.67" />
+                    </svg>
+                    Last Updated: <strong>24/02/2026</strong>
+                </span>
+            </div>
+        </div>
+
+        <section>
+            <h2>1. Introduction</h2>
+            <p>
+                Welcome to <strong>Velocity 12</strong> ("we", "our", "us").
+                This Privacy Policy explains how we collect, use, and protect your information
+                when you interact with our WhatsApp Chatbot and use our services.
+                By using our services, you agree to this Privacy Policy.
+            </p>
+        </section>
+
+        <section>
+            <h2>2. Information We Collect</h2>
+            <p>When you interact with our WhatsApp Chatbot, we may collect:</p>
+            <ul>
+                <li>Your phone number</li>
+                <li>Your WhatsApp profile name</li>
+                <li>Messages you send to the chatbot</li>
+                <li>Login information (if using Facebook/Meta Login)</li>
+                <li>Basic profile details (such as name and email, if permission is granted)</li>
+            </ul>
+        </section>
+
+        <section>
+            <h2>3. How We Use Your Information</h2>
+            <ul>
+                <li>To provide automated responses and customer support</li>
+                <li>To improve chatbot performance and user experience</li>
+                <li>To authenticate users (if login is enabled)</li>
+                <li>To ensure security and prevent fraud or misuse</li>
+            </ul>
+        </section>
+
+        <section>
+            <h2>4. Data Sharing</h2>
+            <p>
+                We do not sell, rent, or trade your personal information.
+                We may share information only with service providers who help us operate our chatbot,
+                or when required by law.
+            </p>
+        </section>
+
+        <section>
+            <h2>5. Data Retention</h2>
+            <p>
+                We retain personal data only as long as necessary to provide services,
+                comply with legal obligations, and resolve disputes.
+                Users may request deletion of their data at any time.
+            </p>
+        </section>
+
+        <section>
+            <h2>6. Data Security</h2>
+            <p>
+                We implement appropriate technical and organizational measures to protect
+                your data from unauthorized access, disclosure, or misuse.
+            </p>
+        </section>
+
+        <section>
+            <h2>7. Your Rights</h2>
+            <p>You have the right to:</p>
+            <ul>
+                <li>Request access to your personal data</li>
+                <li>Request correction of inaccurate data</li>
+                <li>Request deletion of your data</li>
+                <li>Withdraw consent at any time</li>
+            </ul>
+            <p>To exercise these rights, contact us at: <a
+                    href="mailto:zenith.velocity12@gmail.com"><strong>zenith.velocity12@gmail.com</strong></a></p>
+        </section>
+
+        <section>
+            <h2>8. Third-Party Services</h2>
+            <p>
+                Our chatbot operates on the WhatsApp Business Platform and may integrate
+                with Meta/Facebook services. Your use of WhatsApp is also subject to
+                WhatsApp's own Privacy Policy.
+            </p>
+        </section>
+
+        <section>
+            <h2>9. Children's Privacy</h2>
+            <p>
+                Our services are not directed to individuals under the age of 13.
+                We do not knowingly collect personal information from children.
+            </p>
+        </section>
+
+        <section>
+            <h2>10. Contact Information</h2>
+            <div class="contact-box">
+                <p>
+                    <strong>Company Name:</strong>
+                    <span>Velocity 12</span>
+                </p>
+                <p>
+                    <strong>Email:</strong>
+                    <a href="mailto:zenith.velocity12@gmail.com">zenith.velocity12@gmail.com</a>
+                </p>
+            </div>
+        </section>
+
+        <footer>
+            &copy; 2026 Velocity 12. All Rights Reserved.
+        </footer>
+
+    </div>
+</body>
+
+</html>
